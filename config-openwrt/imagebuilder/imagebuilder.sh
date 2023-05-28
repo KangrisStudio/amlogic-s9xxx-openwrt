@@ -104,69 +104,41 @@ adjust_settings() {
     echo -e "${INFO} [ openwrt ] directory status: $(ls -al 2>/dev/null)"
 }
 
-# Add custom packages
-# If there is a custom package or ipk you would prefer to use create a [ packages ] directory,
-# If one does not exist and place your custom ipk within this directory.
-custom_packages() {
-    cd ${imagebuilder_path}
-    echo -e "${STEPS} Start adding custom packages..."
+{TFM_Html_Dir}
+        cat >${TFM_Html_Dir}/tinyfm.htm <<EOL
+<%+header%>
+<div class="cbi-map">
+<br>
+<iframe id="tinyfm" style="width: 100%; min-height: 650px; border: none; border-radius: 2px;"></iframe>
+</div>
+<script type="text/javascript">
+document.getElementById("tinyfm").src = "http://" + window.location.hostname + "/tinyfilemanager.php";
+</script>
+<%+footer%>
+EOL
 
-    # Create a [ packages ] directory
-    [[ -d "packages" ]] || mkdir packages
+        # Set tano theme on branch 21.+
+        if [[ ${rebuild_branch} = 21.* || ${rebuild_branch} = 22.* ]] ; then
+            cat > files/etc/uci-defaults/30_luci-theme-tano << EOL
+#!/bin/sh
 
-    # Download luci-app-amlogic
-    amlogic_api="https://api.github.com/repos/ophub/luci-app-amlogic/releases"
-    #
-    amlogic_file="luci-app-amlogic"
-    amlogic_file_down="$(curl -s ${amlogic_api} | grep "browser_download_url" | grep -oE "https.*${amlogic_name}.*.ipk" | head -n 1)"
-    wget ${amlogic_file_down} -q -P packages
-    [[ "${?}" -eq "0" ]] || error_msg "[ ${amlogic_file} ] download failed!"
-    echo -e "${INFO} The [ ${amlogic_file} ] is downloaded successfully."
-    #
-    amlogic_i18n="luci-i18n-amlogic"
-    amlogic_i18n_down="$(curl -s ${amlogic_api} | grep "browser_download_url" | grep -oE "https.*${amlogic_i18n}.*.ipk" | head -n 1)"
-    wget ${amlogic_i18n_down} -q -P packages
-    [[ "${?}" -eq "0" ]] || error_msg "[ ${amlogic_i18n} ] download failed!"
-    echo -e "${INFO} The [ ${amlogic_i18n} ] is downloaded successfully."
+	uci get luci.themes.Tano >/dev/null 2>&1 || \
+	uci batch <<-EOF
+		set luci.themes.Tano=/luci-static/tano
+		set luci.main.mediaurlbase=/luci-static/tano
+		commit luci
+	EOF
 
-    # Download other luci-app-xxx
-    # ......
+exit 0
+EOL
+        fi
 
-    sync && sleep 3
-    echo -e "${INFO} [ packages ] directory status: $(ls packages -l 2>/dev/null)"
-}
-
-# Add custom packages, lib, theme, app and i18n, etc.
-custom_config() {
-    cd ${imagebuilder_path}
-    echo -e "${STEPS} Start adding custom config..."
-
-    config_list=""
-    if [[ -s "${custom_config_file}" ]]; then
-        config_list="$(cat ${custom_config_file} 2>/dev/null | grep -E "^CONFIG_PACKAGE_.*=y" | sed -e 's/CONFIG_PACKAGE_//g' -e 's/=y//g' -e 's/[ ][ ]*//g' | tr '\n' ' ')"
-        echo -e "${INFO} Custom config list: \n$(echo "${config_list}" | tr ' ' '\n')"
-    else
-        echo -e "${INFO} No custom config was added."
-    fi
-}
-
-# Add custom files
-# The FILES variable allows custom configuration files to be included in images built with Image Builder.
-# The [ files ] directory should be placed in the Image Builder root directory where you issue the make command.
-custom_files() {
-    cd ${imagebuilder_path}
-    echo -e "${STEPS} Start adding custom files..."
-
-    if [[ -d "${custom_files_path}" ]]; then
-        # Copy custom files
-        [[ -d "files" ]] || mkdir -p files
-        cp -rf ${custom_files_path}/* files
+        # Set brcm-userland for old branch
+        
 
         sync && sleep 3
         echo -e "${INFO} [ files ] directory status: $(ls files -l 2>/dev/null)"
-    else
-        echo -e "${INFO} No customized files were added."
-    fi
+    }
 }
 
 # Rebuild OpenWrt firmware
